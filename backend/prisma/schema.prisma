@@ -1,0 +1,374 @@
+// ============================================================
+// HRMS + Payroll Management System — Prisma Schema (SQLite)
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------------------------------------------
+// USER — multi-user login
+// ------------------------------------------------------------
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("HR_STAFF") // MANAGER | ACCOUNTANT | HR_STAFF
+  isActive     Boolean  @default(true)
+  createdById  Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  permissionOverrides UserPermissionOverride[]
+
+  @@map("users")
+}
+
+// ------------------------------------------------------------
+// COMPANY SETTINGS
+// ------------------------------------------------------------
+model CompanySettings {
+  id               Int      @id @default(autoincrement())
+  companyName      String   @default("Your Company Pvt Ltd")
+  addressLine      String?
+  logoUrl          String?
+  workingDaysMonth Int      @default(24)
+  paidHolidays     Int      @default(7)
+  paidLeaveDefault Int      @default(0)
+  esiRate          Decimal  @default(0.0075)
+  pfRate           Decimal  @default(0.12)
+
+  emailNotificationsEnabled Boolean @default(false)
+  smsNotificationsEnabled   Boolean @default(false)
+  birthdayRemindersEnabled  Boolean @default(false)
+  birthdayReminderHour      Int     @default(9)
+
+  updatedAt        DateTime @updatedAt
+
+  @@map("company_settings")
+}
+
+// ------------------------------------------------------------
+// DEPARTMENTS
+// ------------------------------------------------------------
+model Department {
+  id        Int        @id @default(autoincrement())
+  name      String     @unique
+  createdAt DateTime   @default(now())
+  employees Employee[]
+
+  @@map("departments")
+}
+
+// ------------------------------------------------------------
+// EMPLOYEES
+// ------------------------------------------------------------
+model Employee {
+  id             Int      @id @default(autoincrement())
+  code           String   @unique
+  name           String
+  photoUrl       String?
+  gender         String?  // MALE | FEMALE | OTHER
+  dob            DateTime?
+  relativeName   String?
+  mobile         String?
+  email          String?
+  address        String?
+  joiningDate    DateTime?
+  departmentId   Int?
+  department     Department? @relation(fields: [departmentId], references: [id])
+  designation    String?
+  employmentType String   @default("FULL_TIME") // FULL_TIME | PART_TIME | CONTRACT
+  status         String   @default("ACTIVE") // ACTIVE | INACTIVE
+
+  // Bank & statutory
+  bankName    String?
+  branch      String?
+  accountNo   String?
+  ifsc        String?
+  pan         String?
+  aadhaar     String?
+  pfNumber    String?
+  esiNumber   String?
+  uan         String?
+  paymentMode String   @default("NEFT_RTGS") // NEFT_RTGS | TRANSFER | CASH_CHEQUE
+
+  // Salary structure
+  basic           Decimal @default(0)
+  hra             Decimal @default(0)
+  da              Decimal @default(0)
+  specialAllow    Decimal @default(0)
+  medicalAllow    Decimal @default(0)
+  conveyance      Decimal @default(0)
+  washingAllow    Decimal @default(0)
+  otherAllow      Decimal @default(0)
+  otRatePerHour   Decimal @default(0)
+
+  // Deduction config
+  pfDeduction       Decimal @default(0)
+  esiApplicable     Boolean @default(true)
+  professionalTax   Decimal @default(0)
+  canteenRatePerDay Decimal @default(0)
+  rentDeduction     Decimal @default(0)
+  otherDeduction    Decimal @default(0)
+
+  // Leave balances
+  elBalance Decimal @default(0)
+  clBalance Decimal @default(0)
+
+  leaveRequestToken String? @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendanceRecords Attendance[]
+  payrollRecords    Payroll[]
+  salarySlips       SalarySlip[]
+  leaveRequests     LeaveRequest[]
+
+  @@map("employees")
+}
+
+// ------------------------------------------------------------
+// ATTENDANCE STATUS
+// ------------------------------------------------------------
+model AttendanceStatus {
+  id          Int     @id @default(autoincrement())
+  code        String  @unique
+  label       String
+  payRuleType String  @default("FULL_PAY") // FULL_PAY | HALF_PAY | NO_PAY
+  payFraction Decimal @default(1.0)
+  isDefault   Boolean @default(false)
+
+  attendanceRecords Attendance[]
+
+  @@map("attendance_statuses")
+}
+
+// ------------------------------------------------------------
+// ATTENDANCE
+// ------------------------------------------------------------
+model Attendance {
+  id                 Int              @id @default(autoincrement())
+  employeeId         Int
+  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date               DateTime
+  attendanceStatusId Int
+  attendanceStatus   AttendanceStatus @relation(fields: [attendanceStatusId], references: [id])
+  remarks            String?
+  markedAt           DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+
+  @@unique([employeeId, date])
+  @@map("attendance")
+}
+
+// ------------------------------------------------------------
+// LEAVE TYPES
+// ------------------------------------------------------------
+model LeaveTypes {
+  id                Int     @id @default(autoincrement())
+  code              String  @unique
+  label             String
+  isPaid            Boolean @default(true)
+  annualEntitlement Decimal @default(0)
+
+  @@map("leave_types")
+}
+
+// ------------------------------------------------------------
+// PAYROLL ADJUSTMENTS
+// ------------------------------------------------------------
+model PayrollAdjustment {
+  id                   Int      @id @default(autoincrement())
+  employeeId           Int
+  month                Int
+  year                 Int
+  otHours              Decimal  @default(0)
+  lopOverride          Decimal?
+  advance              Decimal  @default(0)
+  tax                  Decimal  @default(0)
+  otherAllowanceOneOff Decimal  @default(0)
+  updatedAt            DateTime @updatedAt
+
+  @@unique([employeeId, month, year])
+  @@map("payroll_adjustments")
+}
+
+// ------------------------------------------------------------
+// PAYROLL
+// ------------------------------------------------------------
+model Payroll {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  month      Int
+  year       Int
+
+  nowd        Int
+  lopDays     Decimal
+  daysWorking Decimal
+  noph        Int
+  nopl        Int
+  otHours     Decimal @default(0)
+
+  basicEarned      Decimal
+  hraEarned        Decimal
+  daEarned         Decimal
+  specialEarned    Decimal
+  medicalEarned    Decimal
+  conveyanceEarned Decimal
+  washingEarned    Decimal
+  otAmount         Decimal
+  otherAllowance   Decimal
+
+  scaleTotal    Decimal
+  earningsTotal Decimal
+
+  esiDeduction     Decimal
+  taxDeduction     Decimal
+  rentDeduction    Decimal
+  canteenDeduction Decimal
+  advanceDeduction Decimal
+  otherDeduction   Decimal
+  pfDeduction      Decimal
+  deductionsTotal  Decimal
+
+  netSalary Decimal
+
+  status        String   @default("GENERATED") // DRAFT | GENERATED | FINALIZED
+  generatedAt   DateTime @default(now())
+  regeneratedAt DateTime?
+
+  salarySlip SalarySlip?
+
+  @@unique([employeeId, month, year])
+  @@map("payroll")
+}
+
+// ------------------------------------------------------------
+// SALARY SLIPS
+// ------------------------------------------------------------
+model SalarySlip {
+  id            Int      @id @default(autoincrement())
+  employeeId    Int
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payrollId     Int      @unique
+  payroll       Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  month         Int
+  year          Int
+  pdfPath       String?
+  amountInWords String?
+  generatedAt   DateTime @default(now())
+
+  @@unique([employeeId, month, year])
+  @@map("salary_slips")
+}
+
+// ------------------------------------------------------------
+// AUDIT LOG
+// ------------------------------------------------------------
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  username    String
+  action      String   // CREATE | UPDATE | DELETE | LOGIN | LOGIN_FAILED
+  entityType  String
+  entityId    String
+  description String
+  changes     String?  // JSON string
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// ------------------------------------------------------------
+// LEAVE REQUEST
+// ------------------------------------------------------------
+model LeaveRequest {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  startDate     DateTime
+  endDate       DateTime
+  leaveTypeCode String
+  reason        String
+
+  status         String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  reviewedById   Int?
+  reviewedByName String?
+  reviewNote     String?
+  reviewedAt     DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@map("leave_requests")
+}
+
+// ------------------------------------------------------------
+// PERMISSIONS
+// ------------------------------------------------------------
+model Permission {
+  id       Int    @id @default(autoincrement())
+  key      String @unique
+  label    String
+  category String
+
+  rolePermissions RolePermission[]
+  userOverrides   UserPermissionOverride[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  role         String     // MANAGER | ACCOUNTANT | HR_STAFF
+  permissionId Int
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  allowed      Boolean    @default(false)
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([role, permissionId])
+  @@map("role_permissions")
+}
+
+model UserPermissionOverride {
+  id           Int        @id @default(autoincrement())
+  userId       Int
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissionId Int
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  allowed      Boolean
+  setById      Int?
+  setByName    String?
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([userId, permissionId])
+  @@map("user_permission_overrides")
+}
+
+// ------------------------------------------------------------
+// NOTIFICATION LOG
+// ------------------------------------------------------------
+model NotificationLog {
+  id              Int      @id @default(autoincrement())
+  employeeId      Int?
+  channel         String   // EMAIL | SMS
+  category        String   // PAYSLIP | BIRTHDAY
+  recipient       String
+  subject         String?
+  status          String   // SENT | FAILED | SKIPPED
+  errorMessage    String?
+  triggeredById   Int?
+  triggeredByName String?
+  createdAt       DateTime @default(now())
+
+  @@map("notification_logs")
+}

@@ -31,10 +31,6 @@ export async function fetchAuditLogs(filters: AuditLogFilters) {
     pageSize: number;
     totalPages: number;
   }>('/audit-logs', { params: filters });
-  data.logs = data.logs.map((log) => ({
-    ...log,
-    changes: typeof log.changes === 'string' ? JSON.parse(log.changes) : log.changes,
-  }));
   return data;
 }
 

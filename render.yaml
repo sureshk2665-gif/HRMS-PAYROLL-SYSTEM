@@ -1,0 +1,30 @@
+databases:
+  - name: hrms-payroll-db
+    plan: free
+    databaseName: hrms_payroll
+    user: hrms_user
+
+services:
+  - type: web
+    name: hrms-payroll-backend
+    runtime: node
+    plan: free
+    buildCommand: cd backend && npm install && npx prisma generate && npm run build
+    startCommand: cd backend && npx prisma migrate deploy && npx prisma db seed && node dist/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: hrms-payroll-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: "8h"
+      - key: FRONTEND_URL
+        sync: false
+      - key: DEFAULT_ADMIN_USERNAME
+        value: admin
+      - key: DEFAULT_ADMIN_PASSWORD
+        value: admin123

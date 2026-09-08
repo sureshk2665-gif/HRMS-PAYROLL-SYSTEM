@@ -1,5 +1,5 @@
 // ============================================================
-// HRMS + Payroll Management System — Prisma Schema (SQLite)
+// HRMS + Payroll Management System — Prisma Schema (PostgreSQL)
 // ============================================================
 
 generator client {
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -281,7 +281,7 @@ model AuditLog {
   entityType  String
   entityId    String
   description String
-  changes     String?  // JSON string
+  changes     Json?
   ipAddress   String?
   createdAt   DateTime @default(now())
 

@@ -1,17 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import * as dotenv from 'dotenv';
-import path from 'path';
 import { seedPermissions } from './permissions.seed';
 
 dotenv.config();
-
-// Fix SQLite path resolution: seed runs from backend/ but db is in prisma/
-if (process.env.DATABASE_URL?.startsWith('file:')) {
-  const dbFile = process.env.DATABASE_URL.replace('file:', '');
-  const absPath = path.resolve(__dirname, path.basename(dbFile));
-  process.env.DATABASE_URL = `file:${absPath}`;
-}
 
 const prisma = new PrismaClient();
 

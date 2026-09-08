@@ -39,7 +39,7 @@ export async function logAudit(params: LogAuditParams): Promise<void> {
         entityType,
         entityId: String(entityId),
         description,
-        changes: changes ? JSON.stringify(changes) : undefined,
+        changes: changes ? (changes as any) : undefined,
         ipAddress: req.ip || req.socket.remoteAddress || null,
       },
     });

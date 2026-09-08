@@ -1,12 +1,4 @@
 import { PrismaClient } from '@prisma/client';
-import path from 'path';
-
-// Fix SQLite path resolution
-if (process.env.DATABASE_URL?.startsWith('file:') && !path.isAbsolute(process.env.DATABASE_URL.replace('file:', ''))) {
-  const dbFile = process.env.DATABASE_URL.replace('file:', '');
-  const absPath = path.resolve(__dirname, path.basename(dbFile));
-  process.env.DATABASE_URL = `file:${absPath}`;
-}
 
 const prisma = new PrismaClient();
 
